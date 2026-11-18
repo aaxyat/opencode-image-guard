@@ -90,4 +90,4 @@ OpenCode `2.3.0`, model `mistral/deepseek-v4-1-flash-1017`:
 
 ## License
 
-No license file is included yet. Add one before redistributing.
+MIT — see [LICENSE](LICENSE).
