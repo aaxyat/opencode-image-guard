@@ -45,14 +45,49 @@ Copy-Item .\image-guard.js "$env:USERPROFILE\.config\opencode\plugins\"
 
 OpenCode auto-loads files in that directory; no `opencode.json` entry is needed. Changes are hot-reloaded.
 
-## Configuration
+## Settings
 
-Both are read from the OpenCode server's environment at plugin load:
+Limits live in one JSON file, read by the plugin on every request and re-read whenever its mtime changes:
+
+```
+~/.config/opencode/image-guard.json
+```
+
+```json
+{
+  "version": 1,
+  "models": {
+    "mistral/deepseek-v4-1-flash-1017": 15,
+    "mistral/*": 8
+  }
+}
+```
+
+Resolution order for a request to `provider/model`: exact `provider/model`, then `provider/*`, then `*`. A model with no match is not guarded. Editing the file applies to the next request, with no OpenCode restart.
+
+### CLI
+
+```bash
+node bin/image-guard.mjs list
+node bin/image-guard.mjs set mistral/deepseek-v4-1-flash-1017 15
+node bin/image-guard.mjs set "mistral/*" 8
+node bin/image-guard.mjs unset "mistral/*"
+node bin/image-guard.mjs init      # write the default file
+node bin/image-guard.mjs path      # print the config path
+```
+
+### GUI
+
+The companion OpenChamber extension (**[openchamber-image-guard](https://github.com/aaxyat/openchamber-image-guard)**) adds a settings panel that edits the same file: add a model, change its limit, remove it, save. Changes apply to the running plugin immediately.
+
+### Environment fallback
+
+Used only when `image-guard.json` does not exist:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `OPENCODE_MAX_IMAGES` | `15` | Maximum image parts per request. Keep it below the provider's limit. |
-| `IMAGE_GUARD_MODELS` | `mistral/deepseek-v4-1-flash-1017` | Comma-separated `provider/model` list the guard applies to. |
+| `OPENCODE_MAX_IMAGES` | `15` | Cap applied to the models in `IMAGE_GUARD_MODELS`. |
+| `IMAGE_GUARD_MODELS` | `mistral/deepseek-v4-1-flash-1017` | Comma-separated `provider/model` list. |
 
 ## Log
 
@@ -72,9 +107,10 @@ OpenCode `2.3.0`, model `mistral/deepseek-v4-1-flash-1017`:
 
 | Scenario | Images in request | Dropped | Result |
 | --- | --- | --- | --- |
-| 21 file attachments | 21 | 6 | request accepted (before the plugin: HTTP 400 / code 3051) |
+| 21 file attachments, limit 15 | 21 | 6 | request accepted (before the plugin: HTTP 400 / code 3051) |
 | 16 PNGs read via the `read` tool | 16 | 1 | request accepted |
-| ≤ 15 images | ≤ 15 | 0 | untouched |
+| limit changed to 12 from the CLI, next request | 21 | 9 | accepted with no restart |
+| ≤ limit | ≤ limit | 0 | untouched |
 
 ## Compatibility
 
